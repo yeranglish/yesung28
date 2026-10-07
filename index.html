@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>정밀 인볼류트 기어 60갑자 맞물림 시뮬레이터</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --stem-c: #ff5722;
+      --branch-c: #eab308;
+      --text: #f0f6fc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .wrapper {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      max-width: 980px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.desc {
+      color: #8b949e;
+      font-size: 14px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .canvas-box {
+      position: relative;
+      background: radial-gradient(circle at 45% 50%, #1c2333 0%, #0d1117 100%);
+      border-radius: 16px;
+      border: 1px solid #30363d;
+      overflow: hidden;
+      box-shadow: inset 0 4px 20px rgba(0,0,0,0.8);
+    }
+    canvas {
+      display: block;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+
+    /* 실시간 결합 헤드라인 배너 */
+    .coupling-banner {
+      width: 100%;
+      margin-top: 20px;
+      background: linear-gradient(90deg, rgba(255, 87, 34, 0.15) 0%, rgba(234, 179, 8, 0.15) 100%);
+      border: 2px solid #38bdf8;
+      border-radius: 14px;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+    }
+    .year-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .year-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #60a5fa;
+      letter-spacing: -1px;
+    }
+    .year-sub {
+      font-size: 13px;
+      color: #8b949e;
+    }
+    .joint-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .char-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      font-weight: 900;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .char-badge.stem {
+      background: #ff5722;
+      color: #fff;
+      border: 2px solid #ff8a65;
+    }
+    .char-badge.branch {
+      background: #eab308;
+      color: #1a1a1a;
+      border: 2px solid #fde047;
+    }
+    .badge-ko { font-size: 28px; line-height: 1; }
+    .badge-han { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .plus-sign {
+      font-size: 24px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+    .ganji-summary {
+      display: flex;
+      flex-direction: column;
+      text-align: right;
+    }
+    .ganji-name {
+      font-size: 32px;
+      font-weight: 900;
+      color: #facc15;
+    }
+    .ganji-desc {
+      font-size: 14px;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 18px;
+      align-items: center;
+    }
+    button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:hover { background: #2ea043; }
+    button:active { transform: scale(0.97); }
+    button.secondary { background: #21262d; border: 1px solid #30363d; }
+    button.secondary:hover { background: #30363d; }
+
+    input[type="number"] {
+      width: 100px;
+      padding: 9px 12px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #fff;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <h1>10천간(하늘) × 12지지(땅) 톱니바퀴 결합기</h1>
+  <p class="desc">톱니바퀴를 좌우로 드래그해 돌려보세요. <b>중앙 맞물림 창</b>에서 두 글자가 정확히 맞물려 연도가 완성됩니다!</p>
+
+  <div class="canvas-box">
+    <canvas id="gearCanvas" width="900" height="460"></canvas>
+  </div>
+
+  <!-- 맞물림 상세 결과 배너 -->
+  <div class="coupling-banner">
+    <div class="year-cell">
+      <div class="year-title" id="dispYear">2026년</div>
+      <div class="year-sub" id="dispCycle">60갑자 중 43번째 조합</div>
+    </div>
+
+    <div class="joint-cell">
+      <div class="char-badge stem">
+        <span class="badge-ko" id="stemKo">병</span>
+        <span class="badge-han" id="stemHan">丙</span>
+      </div>
+      <span class="plus-sign">+</span>
+      <div class="char-badge branch">
+        <span class="badge-ko" id="branchKo">오</span>
+        <span class="badge-han" id="branchHan">午</span>
+      </div>
+    </div>
+
+    <div class="ganji-summary">
+      <div class="ganji-name" id="dispGanji">병오년 (丙午)</div>
+      <div class="ganji-desc" id="dispAnimal">붉은 말의 해</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="secondary" id="btnPrev">◀ 이전 해 (-1)</button>
+    <button class="secondary" id="btnNext">다음 해 (+1) ▶</button>
+    <input type="number" id="inputYear" value="2026">
+    <button id="btnGo">연도 이동</button>
+  </div>
+</div>
+
+<script>
+  // 천간 데이터
+  const STEMS = [
+    { ko: '갑', han: '甲', color: '#22c55e', name: '청(푸른)' },
+    { ko: '을', han: '乙', color: '#22c55e', name: '청(푸른)' },
+    { ko: '병', han: '丙', color: '#ef4444', name: '적(붉은)' },
+    { ko: '정', han: '丁', color: '#ef4444', name: '적(붉은)' },
+    { ko: '무', han: '戊', color: '#f59e0b', name: '황(노란)' },
+    { ko: '기', han: '己', color: '#f59e0b', name: '황(노란)' },
+    { ko: '경', han: '庚', color: '#f8fafc', name: '백(하얀)' },
+    { ko: '신', han: '辛', color: '#f8fafc', name: '백(하얀)' },
+    { ko: '임', han: '壬', color: '#3b82f6', name: '흑(검은)' },
+    { ko: '계', han: '癸', color: '#3b82f6', name: '흑(검은)' }
+  ];
+
+  // 지지 데이터
+  const BRANCHES = [
+    { ko: '자', han: '子', animal: '쥐' },
+    { ko: '축', han: '丑', animal: '소' },
+    { ko: '인', han: '寅', animal: '호랑이' },
+    { ko: '묘', han: '卯', animal: '토끼' },
+    { ko: '진', han: '辰', animal: '용' },
+    { ko: '사', han: '巳', animal: '뱀' },
+    { ko: '오', han: '午', animal: '말' },
+    { ko: '미', han: '未', animal: '양' },
+    { ko: '신', han: '申', animal: '원숭이' },
+    { ko: '유', han: '酉', animal: '닭' },
+    { ko: '술', han: '戌', animal: '개' },
+    { ko: '해', han: '亥', animal: '돼지' }
+  ];
+
+  const canvas = document.getElementById('gearCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // [기구학 설계]
+  // 동일 모듈(m=32)로 치폭과 피치가 정확히 일치하여 맞물리도록 설계
+  const module = 32;
+  const N1 = 10; // 천간 톱니 수
+  const N2 = 12; // 지지 톱니 수
+
+  const R1 = (N1 * module) / 2; // 160px 피치원
+  const R2 = (N2 * module) / 2; // 192px 피치원
+
+  const toothAddendum = 18; // 이끝 높이
+  const toothDedendum = 22; // 이뿌리 깊이
+
+  // 중심점 및 접촉 피치 포인트
+  const contactX = 405;
+  const contactY = 230;
+  const c1 = { x: contactX - R1, y: contactY };
+  const c2 = { x: contactX + R2, y: contactY };
+
+  let currentYear = 2026;
+  let angleStem = 0;
+  let angleBranch = 0;
+  let targetAngleStem = 0;
+  let targetAngleBranch = 0;
+
+  function calculateIndices(year) {
+    let s = (year - 4) % 10;
+    if (s < 0) s += 10;
+    let b = (year - 4) % 12;
+    if (b < 0) b += 12;
+    return { stem: s, branch: b };
+  }
+
+  function setYear(year, immediate = false) {
+    currentYear = year;
+    const { stem, branch } = calculateIndices(year);
+
+    const pitchStem = (2 * Math.PI) / N1;
+    const pitchBranch = (2 * Math.PI) / N2;
+
+    // 왼쪽 기어(천간): i번째 이(Tooth) 정점이 3시 방향(angle=0) 접점 센터에 안착
+    targetAngleStem = - stem * pitchStem;
+    // 오른쪽 기어(지지): i번째 홈(Valley)이 9시 방향(angle=PI)에 오도록 반 피치 위상 이동하여 완벽하게 맞물림
+    targetAngleBranch = Math.PI - branch * pitchBranch + (pitchBranch / 2);
+
+    if (immediate) {
+      angleStem = targetAngleStem;
+      angleBranch = targetAngleBranch;
+    }
+    updateUI();
+  }
+
+  function updateUI() {
+    const { stem, branch } = calculateIndices(currentYear);
+    const s = STEMS[stem];
+    const b = BRANCHES[branch];
+
+    document.getElementById('dispYear').innerText = `${currentYear}년`;
+    let cycle = ((currentYear - 4) % 60 + 60) % 60 + 1;
+    document.getElementById('dispCycle').innerText = `60갑자 중 ${cycle}번째 순환`;
+
+    document.getElementById('stemKo').innerText = s.ko;
+    document.getElementById('stemHan').innerText = s.han;
+    document.getElementById('branchKo').innerText = b.ko;
+    document.getElementById('branchHan').innerText = b.han;
+
+    document.getElementById('dispGanji').innerText = `${s.ko}${b.ko}년 (${s.han}${b.han})`;
+    document.getElementById('dispAnimal').innerText = `${s.name} ${b.animal}의 해`;
+    document.getElementById('inputYear').value = currentYear;
+  }
+
+  // 실제 기계 톱니 프로파일 경로 생성 함수
+  function createInvoluteProfile(center, pitchR, teeth, isStem = true) {
+    const step = (2 * Math.PI) / teeth;
+    const rRoot = pitchR - toothDedendum;
+    const rTip = pitchR + toothAddendum;
+
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const a = i * step;
+      // 톱니 곡선 모델링 (Root Flank -> Tip Flank)
+      // 1. Root bottom
+      const aRoot1 = a - step * 0.28;
+      const aRoot2 = a - step * 0.16;
+      const aTip1 = a - step * 0.08;
+      const aTip2 = a + step * 0.08;
+      const aRoot3 = a + step * 0.16;
+      const aRoot4 = a + step * 0.28;
+
+      if (i === 0) {
+        ctx.moveTo(center.x + Math.cos(aRoot1) * rRoot, center.y + Math.sin(aRoot1) * rRoot);
+      } else {
+        ctx.lineTo(center.x + Math.cos(aRoot1) * rRoot, center.y + Math.sin(aRoot1) * rRoot);
+      }
+
+      // Root to Tip 곡선
+      ctx.quadraticCurveTo(
+        center.x + Math.cos(a - step * 0.12) * pitchR, center.y + Math.sin(a - step * 0.12) * pitchR,
+        center.x + Math.cos(aTip1) * rTip, center.y + Math.sin(aTip1) * rTip
+      );
+
+      // Tip 아크
+      ctx.arc(center.x, center.y, rTip, aTip1, aTip2);
+
+      // Tip to Root 곡선
+      ctx.quadraticCurveTo(
+        center.x + Math.cos(a + step * 0.12) * pitchR, center.y + Math.sin(a + step * 0.12) * pitchR,
+        center.x + Math.cos(aRoot3) * rRoot, center.y + Math.sin(aRoot3) * rRoot
+      );
+
+      // Root 홈 아크
+      ctx.arc(center.x, center.y, rRoot, aRoot3, aRoot4);
+    }
+    ctx.closePath();
+  }
+
+  // 톱니바퀴 렌더링
+  function drawRealisticGear(center, pitchR, teeth, rotation, items, isBranch = false) {
+    ctx.save();
+
+    // 회전 변환
+    ctx.translate(center.x, center.y);
+    ctx.rotate(rotation);
+    ctx.translate(-center.x, -center.y);
+
+    const rRoot = pitchR - toothDedendum;
+    const rTip = pitchR + toothAddendum;
+
+    // 1. 금속 기어 바디
+    createInvoluteProfile(center, pitchR, teeth, !isBranch);
+
+    const grad = ctx.createRadialGradient(center.x, center.y, 30, center.x, center.y, rTip);
+    if (isBranch) {
+      grad.addColorStop(0, '#92400e');
+      grad.addColorStop(0.7, '#d97706');
+      grad.addColorStop(1, '#b45309');
+    } else {
+      grad.addColorStop(0, '#9a3412');
+      grad.addColorStop(0.7, '#ea580c');
+      grad.addColorStop(1, '#c2410c');
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = isBranch ? '#fef08a' : '#fed7aa';
+    ctx.stroke();
+
+    // 2. 톱니 내부 림(Rim) 및 스포크 홈
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, rRoot - 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e2430';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.stroke();
+
+    // 3. 각 톱니의 [글자] 각인 (톱니 끝부분과 림 사이에 선명하게 표시)
+    const step = (2 * Math.PI) / teeth;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (let i = 0; i < teeth; i++) {
+      const a = i * step;
+      // 톱니 돌출 부위 근처에 글자 배치
+      const labelRadius = pitchR - 2;
+      const lx = center.x + Math.cos(a) * labelRadius;
+      const ly = center.y + Math.sin(a) * labelRadius;
+
+      ctx.save();
+      ctx.translate(lx, ly);
+
+      // 글자가 뒤집히지 않도록 항상 화면 기준 정자세로 렌더링
+      ctx.rotate(-rotation);
+
+      const it = items[i];
+
+      // 배경 원형 플레이트 (글자가 톱니 위에서 뚜렷하게 보이도록)
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isBranch ? '#facc15' : '#fb923c';
+      ctx.stroke();
+
+      // 한글 대형 폰트
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(it.ko, 0, -1);
+
+      // 외곽 쪽 한자 및 동물 작게 표기
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      const subR = 24;
+      ctx.fillText(it.han, Math.cos(a + rotation) * subR, Math.sin(a + rotation) * subR);
+
+      ctx.restore();
+    }
+
+    // 4. 중앙 기계식 허브
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, 32, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f172a';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#64748b';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = '#334155';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // 맞물림 시각 강조 스포트라이트 창
+  function drawMeshHighlightZone() {
+    ctx.save();
+
+    // 맞물리는 포인트 (contactX, contactY)
+    const mx = contactX;
+    const my = contactY;
+
+    // 네온 스포트라이트 영역
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 15;
+
+    // 직사각형 하이라이트 뷰파인더
+    const w = 110;
+    const h = 100;
+    ctx.strokeRect(mx - w/2, my - h/2, w, h);
+
+    // 맞물림 중앙 타깃 크로스헤어
+    ctx.beginPath();
+    ctx.moveTo(mx, my - 20);
+    ctx.lineTo(mx, my + 20);
+    ctx.moveTo(mx - 20, my);
+    ctx.lineTo(mx + 20, my);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    // 상하 레이블
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.fillText('▼ 정확한 맞물림 결합점 ▼', mx, my - 62);
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = '#facc15';
+    ctx.fillText('【 두 글자가 만나 간지 완성 】', mx, my + 68);
+
+    ctx.restore();
+  }
+
+  // 메인 애니메이션 렌더링 루프
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 부드러운 기어 회전 Lerp 보간
+    angleStem += (targetAngleStem - angleStem) * 0.12;
+    angleBranch += (targetAngleBranch - angleBranch) * 0.12;
+
+    // 두 기어 렌더링
+    drawRealisticGear(c1, R1, N1, angleStem, STEMS, false);
+    drawRealisticGear(c2, R2, N2, angleBranch, BRANCHES, true);
+
+    // 결합점 포커스 강조
+    drawMeshHighlightZone();
+
+    requestAnimationFrame(render);
+  }
+
+  // 조작 핸들러
+  document.getElementById('btnPrev').addEventListener('click', () => setYear(currentYear - 1));
+  document.getElementById('btnNext').addEventListener('click', () => setYear(currentYear + 1));
+  document.getElementById('btnGo').addEventListener('click', () => {
+    const val = parseInt(document.getElementById('inputYear').value, 10);
+    if (!isNaN(val)) setYear(val);
+  });
+
+  // 드래그로 톱니 직접 회전
+  let isDragging = false;
+  let lastX = 0;
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+  });
+  window.addEventListener('mouseup', () => isDragging = false);
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    if (Math.abs(dx) > 22) {
+      const step = dx > 0 ? 1 : -1;
+      setYear(currentYear + step);
+      lastX = e.clientX;
+    }
+  });
+
+  // 초기화 (2026년 즉시 반영)
+  setYear(2026, true);
+  render();
+</script>
+</body>
+</html>
